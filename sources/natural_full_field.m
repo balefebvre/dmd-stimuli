@@ -9,6 +9,7 @@ function [ ] = natural_full_field( input_args )
     % % Define default value for each input parameter.
     input_foldername = fullfile(mfoldername, '..', 'data');
     input_filename = 'green_nature_waterfall.jpg';
+    d_stim = 90.0; % sec
     background_intensity = 0.3;
     initial_adaptation_duration = 20.0; % sec
     trial_adaptation_duration = 10.0; % sec
@@ -22,6 +23,7 @@ function [ ] = natural_full_field( input_args )
     parser = inputParser;
     parser.addParameter('input_foldername', input_foldername);
     parser.addParameter('input_filename', input_filename);
+    parser.addParameter('stimulus_duration', d_stim);
     parser.addParameter('background_intensity', background_intensity);
     parser.addParameter('initial_adaptation_duration', initial_adaptation_duration);
     parser.addParameter('trial_adaptation_duration', trial_adaptation_duration);
@@ -38,6 +40,7 @@ function [ ] = natural_full_field( input_args )
     results = parser.Results;
     input_foldername = results.input_foldername;
     input_filename = results.input_filename;
+    d_stim = results.stimulus_duration;
     background_intensity = results.background_intensity;
     initial_adaptation_duration = results.initial_adaptation_duration;
     trial_adaptation_duration = results.trial_adaptation_duration;
@@ -63,12 +66,22 @@ function [ ] = natural_full_field( input_args )
     disp(['Image width: ', num2str(w)]);
     s = [h, w]; % image size
     
+    % Define stimulus duration.
+    n_stim = ceil(d_stim * dmd_frame_rate);
+    d_stim = n_stim / dmd_frame_rate;
+    disp('Stimulus duration:');
+    disp(['  ', num2str(d_stim), ' sec']);
+    if d_stim > 60.0
+        dm = floor(d_stim / 60.0); % minutes
+        ds = d_stim - dm * 60.0; % seconds
+        disp(['  ', num2str(dm), ' min ', num2str(ds), ' sec']);
+    end
+    
     % Define interpolation points.
-    n = 5000;
-    t = linspace(0.0, 1.0, n);
+    t = linspace(0.0, 1.0, n_stim);
     p_start = [0.11, 0.1] .* s;
     p_end = [0.9, 0.9] .* s;
-    p = repmat(p_start, n, 1) + repmat(p_end - p_start, n, 1) .* repmat(t', 1, 2);
+    p = repmat(p_start, n_stim, 1) + repmat(p_end - p_start, n_stim, 1) .* repmat(t', 1, 2);
     
     % Make output directory.
     mkdir(output_foldername);
@@ -103,12 +116,16 @@ function [ ] = natural_full_field( input_args )
     l_base = l_base + (background_intensity - min(l_base));
     l_base = l_base * (256.0 / max(l_base));
     l_base = uint8(l_base);
-    disp(['Maximum light intensity: ', num2str(max(l_base))]);
-    disp(['Median light intensity: ', num2str(median(l_base))]);
-    disp(['Minimum light intensity: ', num2str(min(l_base))]);
+    
+    maximum_intensity = max(l_base);
+    median_intensity = median(l_base);
+    minimum_intensity = min(l_base);
+    disp(['Maximum light intensity: ', num2str(maximum_intensity)]);
+    disp(['Median light intensity: ', num2str(median_intensity)]);
+    disp(['Minimum light intensity: ', num2str(minimum_intensity)]);
     
     % Plot second control figure.
-    x = (1:n) / dmd_frame_rate;
+    x = (1:n_stim) / dmd_frame_rate;
     y = l_base;
     figure('visible', 'off');
     hold('on');
@@ -148,12 +165,13 @@ function [ ] = natural_full_field( input_args )
     % Compute and display stimulus duration.
     l = cell2mat(traces);
     nb_frames = size(l, 1);
-    d =  nb_frames / dmd_frame_rate;
-    disp(['Duration: ', num2str(d), ' sec']);
-    if d > 60.0
-        dm = floor(d / 60.0);
-        ds = d - dm * 60.0;
-        disp(['          ', num2str(dm), ' min ', num2str(ds), ' sec']);
+    d_total =  nb_frames / dmd_frame_rate;
+    disp('Total duration:');
+    disp(['  ', num2str(d_total), ' sec']);
+    if d_total > 60.0
+        dm = floor(d_total / 60.0); % minutes
+        ds = d_total - dm * 60.0; % seconds
+        disp(['  ', num2str(dm), ' min ', num2str(ds), ' sec']);
     end
     
     % Write .bin file.
@@ -208,15 +226,16 @@ function [ ] = natural_full_field( input_args )
     
     % Write repetitions file.
     % % Open repetitions file.
-    rep_filename = fullfile(output_foldername, [mname, '_repetitions.csv']);
-    rep_fid = fopen(rep_filename, 'w');
+    rep_filename = [mname, '_repetitions.csv'];
+    rep_pathname = fullfile(output_foldername, rep_filename);
+    rep_fid = fopen(rep_pathname, 'w');
     % % Write repetitions file header.
     rep_header = 'repetitionId,startFrameId,endFrameId';
     fprintf(rep_fid, '%s\r\n', rep_header);
     % % Close repetitions file.
     fclose(rep_fid);
     % % Write repetitions file data.
-    dlmwrite(rep_filename, repetitions, '-append', 'delimiter', ',');
+    dlmwrite(rep_pathname, repetitions, '-append', 'delimiter', ',');
     
     % Define stimulus data.
     nb_base_frames = size(l_base, 1);
@@ -226,15 +245,45 @@ function [ ] = natural_full_field( input_args )
     
     % Write stimulus file.
     % % Open stimulus file.
-    stim_filename = fullfile(output_foldername, [mname, '_stimulus.csv']);
-    stim_fid = fopen(stim_filename, 'w');
+    stim_filename = [mname, '_stimulus.csv'];
+    stim_pathname = fullfile(output_foldername, stim_filename);
+    stim_fid = fopen(stim_pathname, 'w');
     % % Write stimulus file header.
     stim_header = 'frameId,luminance';
     fprintf(stim_fid, '%s\r\n', stim_header);
     % % Close stimulus file.
     fclose(stim_fid);
     % % Write stimulus file data.
-    dlmwrite(stim_filename, stimulus, '-append', 'delimiter', ',');
+    dlmwrite(stim_pathname, stimulus, '-append', 'delimiter', ',');
+    
+    % Define parameter data.
+    % % Input parameters.
+    args.input_foldername = input_foldername;
+    args.input_filename = input_filename;
+    args.background_intensity = background_intensity;
+    args.initial_adaptation_duration = initial_adaptation_duration;
+    args.trial_adaptation_duration = trial_adaptation_duration;
+    args.nb_repetitions = nb_repetitions;
+    args.dmd_width = dmd_width;
+    args.dmd_height = dmd_height;
+    args.dmd_frame_rate = dmd_frame_rate;
+    args.dmd_output_foldername = output_foldername;
+    % % Internal parameters.
+    args.minimum_intensity = minimum_intensity;
+    args.median_intensity = median_intensity;
+    args.maximum_intensity = maximum_intensity;
+    args.stimulus_duration = d_stim;
+    args.total_duration = d_total;
+    args.bin_filename = bin_filename;
+    args.vec_filename = vec_filename;
+    args.repetition_filename = rep_filename;
+    args.stimulus_filename = stim_filename;
+    % % Discard unused warning.
+    args; %#ok
+    
+    % Write parameters file.
+    mat_filename = fullfile(output_foldername, [mname, '_parameters.mat']);
+    save(mat_filename, '-struct', 'args');
     
 end
 

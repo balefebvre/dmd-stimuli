@@ -5,18 +5,20 @@ function [ ] = natural_full_field( input_args )
     [mfoldername, mname, ~] = fileparts(mfilename('fullpath'));
     
     % 1. Parse input parameters.
-
+    
     % % Define default value for each input parameter.
     input_foldername = fullfile(mfoldername, '..', 'data');
     input_filename = 'green_nature_waterfall.jpg';
     d_stim = 90.0; % sec
-    background_intensity = 0.3;
+    background_intensity = 0.1;
     initial_adaptation_duration = 20.0; % sec
     trial_adaptation_duration = 10.0; % sec
+    adaptation_intensity = 0.1;
     nb_repetitions = 10;
     dmd_width = 1024; % px
     dmd_height = 768; % px
     dmd_frame_rate = 60; % Hz
+    dmd_inversed_polarity = false;
     output_foldername = pwd;
     
     % % Define input parser.
@@ -27,10 +29,12 @@ function [ ] = natural_full_field( input_args )
     parser.addParameter('background_intensity', background_intensity);
     parser.addParameter('initial_adaptation_duration', initial_adaptation_duration);
     parser.addParameter('trial_adaptation_duration', trial_adaptation_duration);
+    parser.addParameter('adaptation_intensity', adaptation_intensity);
     parser.addParameter('nb_repetitions', nb_repetitions);
     parser.addParameter('dmd_width', dmd_width);
     parser.addParameter('dmd_height', dmd_height);
     parser.addParameter('dmd_frame_rate', dmd_frame_rate);
+    parser.addParameter('dmd_inversed_polarity', dmd_inversed_polarity);
     parser.addParameter('output_foldername', output_foldername);
     
     % % Parse input arguments.
@@ -44,10 +48,12 @@ function [ ] = natural_full_field( input_args )
     background_intensity = results.background_intensity;
     initial_adaptation_duration = results.initial_adaptation_duration;
     trial_adaptation_duration = results.trial_adaptation_duration;
+    adaptation_intensity = results.adaptation_intensity;
     nb_repetitions = results.nb_repetitions;
     dmd_width = results.dmd_width;
     dmd_height = results.dmd_height;
     dmd_frame_rate = results.dmd_frame_rate;
+    dmd_inversed_polarity = results.dmd_inversed_polarity;
     output_foldername = results.output_foldername;
     
     
@@ -113,8 +119,10 @@ function [ ] = natural_full_field( input_args )
     else
         background_intensity = 1.0 * background_intensity;
     end
-    l_base = l_base + (background_intensity - min(l_base));
-    l_base = l_base * (256.0 / max(l_base));
+    l_base = l_base - min(l_base);
+    l_base = l_base / max(l_base);
+    l_base = l_base * (256.0 - background_intensity);
+    l_base = l_base + background_intensity;
     l_base = uint8(l_base);
     
     maximum_intensity = max(l_base);
@@ -149,14 +157,22 @@ function [ ] = natural_full_field( input_args )
     disp(['Adaptation duration (before repetition): ', num2str(d_trial), ' sec']);
     
     % Define luminance profiles for retina adaptation.
-    median_intensity = median(l_base);
-    l_init = median_intensity * ones(n_init, 1, 'uint8');
-    l_trial = median_intensity * ones(n_trial, 1, 'uint8');
+    if adaptation_intensity < 0
+        adaptation_intensity = median(l_base);
+    elseif adaptation_intensity < 1
+        adaptation_intensity = 256.0 * adaptation_intensity;
+    else
+        adaptation_intensity = 1.0 * adaptation_intensity;
+    end
+    lum_init = adaptation_intensity * ones(n_init, 1);
+    lum_init = uint8(lum_init);
+    l_trial = adaptation_intensity * ones(n_trial, 1);
+    l_trial = uint8(l_trial);
     
     % Define apparition order of luminance profiles.
     nb_traces = 1 + 2 * nb_repetitions;
     traces = cell(nb_traces, 1);
-    traces{1} = l_init;
+    traces{1} = lum_init;
     for i = 1:nb_repetitions
         traces{2 * i + 0} = l_trial;
         traces{2 * i + 1} = l_base;
@@ -188,7 +204,11 @@ function [ ] = natural_full_field( input_args )
     % % Write .bin file images.
     bin_image = zeros(dmd_height, dmd_width, 'uint8');
     for i = 1:nb_images
-        fwrite(bin_fid, bin_image(:), 'uint8');
+        if dmd_inversed_polarity
+            fwrite(bin_fid, 255 - bin_image(:), 'uint8');
+        else
+            fwrite(bin_fid, bin_image(:), 'uint8');
+        end
         bin_image = bin_image + 1;
     end
     % % Close .bin file.
@@ -230,12 +250,12 @@ function [ ] = natural_full_field( input_args )
     rep_pathname = fullfile(output_foldername, rep_filename);
     rep_fid = fopen(rep_pathname, 'w');
     % % Write repetitions file header.
-    rep_header = 'repetitionId,startFrameId,endFrameId';
+    rep_header = sprintf('repetitionId\tstartFrameId\tendFrameId');
     fprintf(rep_fid, '%s\r\n', rep_header);
     % % Close repetitions file.
     fclose(rep_fid);
     % % Write repetitions file data.
-    dlmwrite(rep_pathname, repetitions, '-append', 'delimiter', ',');
+    dlmwrite(rep_pathname, repetitions, '-append', 'delimiter', '\t', 'newline', 'pc');
     
     % Define stimulus data.
     nb_base_frames = size(l_base, 1);
@@ -249,12 +269,12 @@ function [ ] = natural_full_field( input_args )
     stim_pathname = fullfile(output_foldername, stim_filename);
     stim_fid = fopen(stim_pathname, 'w');
     % % Write stimulus file header.
-    stim_header = 'frameId,luminance';
+    stim_header = sprintf('frameId\tluminance');
     fprintf(stim_fid, '%s\r\n', stim_header);
     % % Close stimulus file.
     fclose(stim_fid);
     % % Write stimulus file data.
-    dlmwrite(stim_pathname, stimulus, '-append', 'delimiter', ',');
+    dlmwrite(stim_pathname, stimulus, '-append', 'delimiter', '\t', 'newline', 'pc');
     
     % Define parameter data.
     % % Input parameters.

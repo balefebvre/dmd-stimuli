@@ -1,4 +1,8 @@
+# Default outputs folder
 /outputs
+
+# Default autosave extension
+*~
 
 
 ##---------------------------------------------------

@@ -10,9 +10,9 @@ function [ ] = moving_bars( input_args )
     parser.addParameter('seed', 42);
     parser.addParameter('nb_node_columns', 3);
     parser.addParameter('nb_node_rows', 3);
-    parser.addParameter('node_spacing', 200.0); % µm
+    parser.addParameter('node_spacing', 150.0); % µm
     parser.addParameter('trace_pad_length', 400.0); % µm
-    parser.addParameter('bar_speed', 4000.0); % µm / sec
+    parser.addParameter('bar_speed', 1000.0); % µm / sec
     parser.addParameter('bar_width', 300.0); % µm
     parser.addParameter('bar_length', 1000.0); % µm
     parser.addParameter('pixel_size', 2.3); % µm
@@ -47,40 +47,28 @@ function [ ] = moving_bars( input_args )
     
     % Plot first control_figure.
     % % ...
-    A = zeros(args.dmd_height, args.dmd_width, 3, 'uint8');
-    x_min = -7.5 * 60.0; % µm
-    x_max = +7.5 * 60.0; % µm
-    y_min = -7.5 * 60.0; % µm
-    y_max = +7.5 * 60.0; % µm
-    j_min = ceil(0.5 * args.dmd_width + x_min / args.pixel_size);
-    j_max = ceil(0.5 * args.dmd_width + x_max / args.pixel_size);
-    i_min = ceil(0.5 * args.dmd_height - y_max / args.pixel_size);
-    i_max = ceil(0.5 * args.dmd_height - y_min / args.pixel_size);
-    A(i_min:i_max, j_min:j_max, :) = 127;
-    x_min = -7.5 * 30.0; % µm
-    x_max = +7.5 * 30.0; % µm
-    y_min = -7.5 * 30.0; % µm
-    y_max = +7.5 * 30.0; % µm
-    j_min = ceil(0.5 * args.dmd_width + x_min / args.pixel_size);
-    j_max = ceil(0.5 * args.dmd_width + x_max / args.pixel_size);
-    i_min = ceil(0.5 * args.dmd_height - y_max / args.pixel_size);
-    i_max = ceil(0.5 * args.dmd_height - y_min / args.pixel_size);
-    A(i_min:i_max, j_min:j_max, :) = 255;
-    % % ...
-    I = ceil(X / args.pixel_size + args.dmd_width / 2);
-    J = ceil(Y / args.pixel_size + args.dmd_height / 2);
+    x_min_60 = -7.5 * 60.0; % µm
+    y_min_60 = -7.5 * 60.0; % µm
+    width_60 = +15.0 * 60.0; % µm
+    height_60 = +15.0 * 60.0; % µm
+    x_min_30 = -7.5 * 30.0; % µm
+    y_min_30 = -7.5 * 30.0; % µm
+    width_30 = +15.0 * 30.0; % µm
+    height_30 = +15.0 * 30.0; % µm
     % % ...
     control_1_filename = [mname, '_control_1.svg'];
     control_1_pathname = fullfile(args.output_foldername, control_1_filename);
     figure('visible', 'off');
     hold('on');
-    image(A);
-    scatter(I(:), J(:));
+    rectangle('Position', [x_min_60, y_min_60, width_60, height_60]);
+    rectangle('Position', [x_min_30, y_min_30, width_30, height_30]);
+    scatter(X(:), Y(:), 50, '.');
     hold('off');
-    xlim([1.0-0.5, args.dmd_width+0.5])
-    ylim([1.0-0.5, args.dmd_height+0.5])
-    xlabel('pixel');
-    ylabel('pixel');
+    xlim(([1.0-0.5, args.dmd_width+0.5] - (args.dmd_width + 1) / 2) * args.pixel_size);
+    ylim(([1.0-0.5, args.dmd_height+0.5] - (args.dmd_height + 1) / 2) * args.pixel_size);
+    title('Trace nodes over 256MEA60 and 256MEA30');
+    xlabel('x (µm)');
+    ylabel('y (µm)');
     saveas(gcf, control_1_pathname);
     close();
     
@@ -223,12 +211,12 @@ function [ ] = moving_bars( input_args )
     ];
     
     % Save all the traces.
-    nb_traces = length(traces);
+    args.nb_traces = length(traces);
     trace_foldername = fullfile(args.output_foldername, mname);
     if ~exist(trace_foldername, 'dir')
         mkdir(trace_foldername)
     end
-    for k = 1:nb_traces
+    for k = 1:args.nb_traces
         % % Open trace file.
         trace_filename = ['stimulus_', num2str(k), '.csv'];
         trace_pathname = fullfile(trace_foldername, trace_filename);
@@ -244,8 +232,11 @@ function [ ] = moving_bars( input_args )
     end
     
     % Define the schedule of the traces.
-    schedule = randperm(nb_traces)';
-    schedule = repmat(schedule, args.nb_repetitions, 1);
+    schedule = zeros(args.nb_traces, args.nb_repetitions);
+    for repetition_id = 1:args.nb_repetitions
+        schedule(:, repetition_id) = randperm(args.nb_traces);
+    end
+    schedule = schedule(:);
     nb_trials = length(schedule);
     nb_images = cellfun(@(trace) size(trace, 1), traces);
     nb_frames = nb_images(schedule);
@@ -262,7 +253,9 @@ function [ ] = moving_bars( input_args )
         repmat(7, args.nb_sd_traces, 1);
     ];
     all_orientation_ids = orientation_ids(schedule);
-    trials = [(1:nb_trials)', schedule, start_frame_ids, end_frame_ids, all_orientation_ids];
+    repetition_ids = repmat((1:args.nb_repetitions), args.nb_traces, 1);
+    repetition_ids = repetition_ids(:);
+    trials = [(1:nb_trials)', schedule, start_frame_ids, end_frame_ids, all_orientation_ids, repetition_ids];
     
     nb_total_images = sum(nb_images); % total number of images (i.e. unique frames)
     nb_total_frames = sum(nb_frames); % total number of frames
@@ -273,7 +266,7 @@ function [ ] = moving_bars( input_args )
     trials_pathname = fullfile(args.output_foldername, trials_filename);
     trials_fid = fopen(trials_pathname, 'w');
     % % Write trials file header.
-    trials_header = 'trialId;stimulusId;startFrameId;endFrameId;orientationId';
+    trials_header = 'trialId;stimulusId;startFrameId;endFrameId;orientationId;repetitionId';
     fprintf(trials_fid, '%s\r\n', trials_header);
     % % Close trials file.
     fclose(trials_fid);
@@ -282,8 +275,8 @@ function [ ] = moving_bars( input_args )
     
     % Write .bin file.
     % % Open .bin file.
-    bin_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.bin'];
-    bin_pathname = fullfile(args.output_foldername, bin_filename);
+    args.bin_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.bin'];
+    bin_pathname = fullfile(args.output_foldername, args.bin_filename);
     permission = 'w'; % writing mode, discard existing contents
     machine_format = 'l'; % IEEE floating point with little-endian byte ordering
     bin_fid = fopen(bin_pathname, permission, machine_format);
@@ -292,12 +285,16 @@ function [ ] = moving_bars( input_args )
     bin_header = [args.dmd_width, args.dmd_height, nb_total_images, nb_bits];
     fwrite(bin_fid, bin_header, 'int16');
     % % Write .bin file images.
-    for trace_id = 1:nb_traces
+    for trace_id = 1:args.nb_traces
+        trace = traces{trace_id};
         for image_id = 1:nb_images(trace_id)
-            x = traces{trace_id}(image_id, 1);
-            y = traces{trace_id}(image_id, 2);
-            a = orientation_ids(image_id) / 8 * pi;
+            x = trace(image_id, 1);
+            y = trace(image_id, 2);
+            a = (orientation_ids(trace_id) / 8) * (2 * pi);
             bin_image = moving_bars_generate_image(args.dmd_width, args.dmd_height, x, y, a, args.bar_width, args.bar_length, args.pixel_size);
+            bin_image = args.background_intensity + (256.0 - args.background_intensity) * bin_image;
+            bin_image = uint8(bin_image - 0.5);
+            bin_image = bin_image';
             if args.dmd_inversed_polarity
                 fwrite(bin_fid, 255 - bin_image(:), 'uint8');
             else
@@ -310,8 +307,8 @@ function [ ] = moving_bars( input_args )
     
     % Write .vec file.
     % % Open .vec file.
-    vec_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.vec'];
-    vec_pathname = fullfile(args.output_foldername, vec_filename);
+    args.vec_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.vec'];
+    vec_pathname = fullfile(args.output_foldername, args.vec_filename);
     permission = 'w'; % writing mode, discard existing contents
     machine_format = 'l'; % IEEE floating point with little-endian byte ordering
     vec_fid = fopen(vec_pathname, permission, machine_format);
@@ -319,8 +316,11 @@ function [ ] = moving_bars( input_args )
     vec_header = [0, nb_total_frames, 0, 0, 0];
     fprintf(vec_fid, '%g %g %g %g %g\n', vec_header);
     % % Write .vec file image indices.
+    start_image_ids = cumsum([1; nb_images(1:end-1)]);
+    end_image_ids = cumsum(nb_images);
     for trial_id = 1:nb_trials
-        for frame_id = start_frame_ids(trial_id):end_frame_ids(trial_id)
+        stim_id = schedule(trial_id);
+        for frame_id = start_image_ids(stim_id):end_image_ids(stim_id)
             image_id = frame_id - 1;
             vec_frame = [0, image_id, 0, 0, 0];
             fprintf(vec_fid, '%g %g %g %g %g\n', vec_frame);
@@ -329,7 +329,10 @@ function [ ] = moving_bars( input_args )
     % % Close .vec file.
     fclose(vec_fid);
     
-    % TODO write .mat file.
+    % Write .mat file.
+    args.mat_filename = [mname, '_parameters.mat'];
+    mat_pathname = fullfile(args.output_foldername, args.mat_filename);
+    save(mat_pathname, '-struct', 'args');
     
 end
 

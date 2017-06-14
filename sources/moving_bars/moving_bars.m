@@ -7,11 +7,14 @@ function [ ] = moving_bars( input_args )
     % 1. Parse input parameters.
     % % Define input parser.
     parser = inputParser;
-    parser.addParameter('nb_node_columns', 5);
-    parser.addParameter('nb_node_rows', 5);
+    parser.addParameter('seed', 42);
+    parser.addParameter('nb_node_columns', 3);
+    parser.addParameter('nb_node_rows', 3);
     parser.addParameter('node_spacing', 200.0); % µm
     parser.addParameter('trace_pad_length', 400.0); % µm
-    parser.addParameter('bar_speed', 2100.0); % µm / sec
+    parser.addParameter('bar_speed', 4000.0); % µm / sec
+    parser.addParameter('bar_width', 300.0); % µm
+    parser.addParameter('bar_length', 1000.0); % µm
     parser.addParameter('pixel_size', 2.3); % µm
     parser.addParameter('background_intensity', 0.1);
     parser.addParameter('nb_repetitions', 10);
@@ -24,6 +27,9 @@ function [ ] = moving_bars( input_args )
     parser.parse(input_args{:});
     % % Retrieve values of input parameters.
     args = parser.Results;
+    
+    % Seed the random number generator.
+    rng(args.seed);
     
     % Define the nodes of the gird for moving bars.
     % % Define node columns x-coordinates.
@@ -241,11 +247,25 @@ function [ ] = moving_bars( input_args )
     schedule = randperm(nb_traces)';
     schedule = repmat(schedule, args.nb_repetitions, 1);
     nb_trials = length(schedule);
-    nb_frames = cellfun(@(trace) size(trace, 1), traces);
-    nb_frames = nb_frames(schedule);
+    nb_images = cellfun(@(trace) size(trace, 1), traces);
+    nb_frames = nb_images(schedule);
     start_frame_ids = cumsum([1; nb_frames(1:end-1)]);
     end_frame_ids = cumsum(nb_frames);
-    trials = [(1:nb_trials)', schedule, start_frame_ids, end_frame_ids];
+    orientation_ids = [
+        zeros(args.nb_h_traces, 1);
+        ones(args.nb_fd_traces, 1);
+        repmat(2, args.nb_v_traces, 1);
+        repmat(3, args.nb_sd_traces, 1);
+        repmat(4, args.nb_h_traces, 1);
+        repmat(5, args.nb_fd_traces, 1);
+        repmat(6, args.nb_v_traces, 1);
+        repmat(7, args.nb_sd_traces, 1);
+    ];
+    all_orientation_ids = orientation_ids(schedule);
+    trials = [(1:nb_trials)', schedule, start_frame_ids, end_frame_ids, all_orientation_ids];
+    
+    nb_total_images = sum(nb_images); % total number of images (i.e. unique frames)
+    nb_total_frames = sum(nb_frames); % total number of frames
     
     % Write trials files.
     % % Open trials file.
@@ -253,16 +273,61 @@ function [ ] = moving_bars( input_args )
     trials_pathname = fullfile(args.output_foldername, trials_filename);
     trials_fid = fopen(trials_pathname, 'w');
     % % Write trials file header.
-    trials_header = 'trialId;stimulusId;startFrameId;endFrameId';
+    trials_header = 'trialId;stimulusId;startFrameId;endFrameId;orientationId';
     fprintf(trials_fid, '%s\r\n', trials_header);
     % % Close trials file.
     fclose(trials_fid);
     % % Write trials file data.
     dlmwrite(trials_pathname, trials, '-append', 'delimiter', ';', 'newline', 'pc');
     
-    % TODO write .bin file.
+    % Write .bin file.
+    % % Open .bin file.
+    bin_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.bin'];
+    bin_pathname = fullfile(args.output_foldername, bin_filename);
+    permission = 'w'; % writing mode, discard existing contents
+    machine_format = 'l'; % IEEE floating point with little-endian byte ordering
+    bin_fid = fopen(bin_pathname, permission, machine_format);
+    % % Write .bin file header.
+    nb_bits = 8; % number of bits
+    bin_header = [args.dmd_width, args.dmd_height, nb_total_images, nb_bits];
+    fwrite(bin_fid, bin_header, 'int16');
+    % % Write .bin file images.
+    for trace_id = 1:nb_traces
+        for image_id = 1:nb_images(trace_id)
+            x = traces{trace_id}(image_id, 1);
+            y = traces{trace_id}(image_id, 2);
+            a = orientation_ids(image_id) / 8 * pi;
+            bin_image = moving_bars_generate_image(args.dmd_width, args.dmd_height, x, y, a, args.bar_width, args.bar_length, args.pixel_size);
+            if args.dmd_inversed_polarity
+                fwrite(bin_fid, 255 - bin_image(:), 'uint8');
+            else
+                fwrite(bin_fid, bin_image(:), 'uint8');
+            end
+        end
+    end
+    % % Close .bin file.
+    fclose(bin_fid);
     
-    % TODO write .vec file.
+    % Write .vec file.
+    % % Open .vec file.
+    vec_filename = [mname, '_', num2str(args.dmd_frame_rate), 'hz.vec'];
+    vec_pathname = fullfile(args.output_foldername, vec_filename);
+    permission = 'w'; % writing mode, discard existing contents
+    machine_format = 'l'; % IEEE floating point with little-endian byte ordering
+    vec_fid = fopen(vec_pathname, permission, machine_format);
+    % % Write .vec file header.
+    vec_header = [0, nb_total_frames, 0, 0, 0];
+    fprintf(vec_fid, '%g %g %g %g %g\n', vec_header);
+    % % Write .vec file image indices.
+    for trial_id = 1:nb_trials
+        for frame_id = start_frame_ids(trial_id):end_frame_ids(trial_id)
+            image_id = frame_id - 1;
+            vec_frame = [0, image_id, 0, 0, 0];
+            fprintf(vec_fid, '%g %g %g %g %g\n', vec_frame);
+        end
+    end
+    % % Close .vec file.
+    fclose(vec_fid);
     
     % TODO write .mat file.
     

@@ -9,11 +9,10 @@ function [ ] = natural_full_field( input_args )
     % % Define default value for each input parameter.
     input_foldername = fullfile(mfoldername, '..', 'data');
     input_filename = 'green_nature_waterfall.jpg';
-    d_stim = 90.0; % sec
+    stimulus_duration = 30.0; % sec
     background_intensity = 0.1;
     initial_adaptation_duration = 20.0; % sec
     trial_adaptation_duration = 10.0; % sec
-    adaptation_intensity = 0.1;
     nb_repetitions = 10;
     dmd_width = 1024; % px
     dmd_height = 768; % px
@@ -25,11 +24,10 @@ function [ ] = natural_full_field( input_args )
     parser = inputParser;
     parser.addParameter('input_foldername', input_foldername);
     parser.addParameter('input_filename', input_filename);
-    parser.addParameter('stimulus_duration', d_stim);
+    parser.addParameter('stimulus_duration', stimulus_duration);
     parser.addParameter('background_intensity', background_intensity);
     parser.addParameter('initial_adaptation_duration', initial_adaptation_duration);
     parser.addParameter('trial_adaptation_duration', trial_adaptation_duration);
-    parser.addParameter('adaptation_intensity', adaptation_intensity);
     parser.addParameter('nb_repetitions', nb_repetitions);
     parser.addParameter('dmd_width', dmd_width);
     parser.addParameter('dmd_height', dmd_height);
@@ -48,7 +46,6 @@ function [ ] = natural_full_field( input_args )
     background_intensity = results.background_intensity;
     initial_adaptation_duration = results.initial_adaptation_duration;
     trial_adaptation_duration = results.trial_adaptation_duration;
-    adaptation_intensity = results.adaptation_intensity;
     nb_repetitions = results.nb_repetitions;
     dmd_width = results.dmd_width;
     dmd_height = results.dmd_height;
@@ -90,7 +87,9 @@ function [ ] = natural_full_field( input_args )
     p = repmat(p_start, n_stim, 1) + repmat(p_end - p_start, n_stim, 1) .* repmat(t', 1, 2);
     
     % Make output directory.
-    mkdir(output_foldername);
+    if ~exist(output_foldername, 'dir')
+        mkdir(output_foldername);
+    end
     
     % Plot first control figure.
     figure('visible', 'off');
@@ -123,7 +122,7 @@ function [ ] = natural_full_field( input_args )
     l_base = l_base / max(l_base);
     l_base = l_base * (256.0 - background_intensity);
     l_base = l_base + background_intensity;
-    l_base = uint8(l_base);
+    l_base = uint8(l_base - 0.5);
     
     maximum_intensity = max(l_base);
     median_intensity = median(l_base);
@@ -133,14 +132,14 @@ function [ ] = natural_full_field( input_args )
     disp(['Minimum light intensity: ', num2str(minimum_intensity)]);
     
     % Plot second control figure.
-    x = (1:n_stim) / dmd_frame_rate;
-    y = l_base;
+    x = (0:n_stim)  / dmd_frame_rate;
+    y = [l_base; l_base(end)];
     figure('visible', 'off');
     hold('on');
-    plot(x, y, 'k-');
+    stairs(x, y, 'k-');
     hold('off');
-    xlim([min(x) max(x)]);
-    ylim([min(y) max(y)]);
+    xlim([min(x), max(x)]);
+    ylim([0.0-5.0, 255.0+5.0]);
     xlabel('time (sec)');
     ylabel('luminance (arb. unit)');
     saveas(gcf, fullfile(output_foldername, [mname, '_control_2.svg']));
@@ -157,17 +156,10 @@ function [ ] = natural_full_field( input_args )
     disp(['Adaptation duration (before repetition): ', num2str(d_trial), ' sec']);
     
     % Define luminance profiles for retina adaptation.
-    if adaptation_intensity < 0
-        adaptation_intensity = median(l_base);
-    elseif adaptation_intensity < 1
-        adaptation_intensity = 256.0 * adaptation_intensity;
-    else
-        adaptation_intensity = 1.0 * adaptation_intensity;
-    end
-    lum_init = adaptation_intensity * ones(n_init, 1);
-    lum_init = uint8(lum_init);
-    l_trial = adaptation_intensity * ones(n_trial, 1);
-    l_trial = uint8(l_trial);
+    lum_init = background_intensity * ones(n_init, 1);
+    lum_init = uint8(lum_init - 0.5);
+    l_trial = background_intensity * ones(n_trial, 1);
+    l_trial = uint8(l_trial - 0.5);
     
     % Define apparition order of luminance profiles.
     nb_traces = 1 + 2 * nb_repetitions;
@@ -192,7 +184,7 @@ function [ ] = natural_full_field( input_args )
     
     % Write .bin file.
     % % Open .bin file.
-    bin_filename = [mname, '.bin'];
+    bin_filename = [mname, '_', num2str(dmd_frame_rate),'hz.bin'];
     permission = 'w'; % writing mode, discard existing contents
     machine_format = 'l'; % IEEE floating point with little-endian byte ordering
     bin_fid = fopen(fullfile(output_foldername, bin_filename), permission, machine_format);
@@ -216,7 +208,7 @@ function [ ] = natural_full_field( input_args )
     
     % Write .vec file.
     % % Open .vec file.
-    vec_filename = [mname, '.vec'];
+    vec_filename = [mname, '_', num2str(dmd_frame_rate), 'hz.vec'];
     permission = 'w'; % writing mode, discard existing contents
     machine_format = 'l'; % IEEE floating point with little-endian byte ordering
     vec_fid = fopen(fullfile(output_foldername, vec_filename), permission, machine_format);
@@ -250,12 +242,12 @@ function [ ] = natural_full_field( input_args )
     rep_pathname = fullfile(output_foldername, rep_filename);
     rep_fid = fopen(rep_pathname, 'w');
     % % Write repetitions file header.
-    rep_header = sprintf('repetitionId\tstartFrameId\tendFrameId');
+    rep_header = sprintf('repetitionId;startFrameId;endFrameId');
     fprintf(rep_fid, '%s\r\n', rep_header);
     % % Close repetitions file.
     fclose(rep_fid);
     % % Write repetitions file data.
-    dlmwrite(rep_pathname, repetitions, '-append', 'delimiter', '\t', 'newline', 'pc');
+    dlmwrite(rep_pathname, repetitions, '-append', 'delimiter', ';', 'newline', 'pc');
     
     % Define stimulus data.
     nb_base_frames = size(l_base, 1);
@@ -269,12 +261,12 @@ function [ ] = natural_full_field( input_args )
     stim_pathname = fullfile(output_foldername, stim_filename);
     stim_fid = fopen(stim_pathname, 'w');
     % % Write stimulus file header.
-    stim_header = sprintf('frameId\tluminance');
+    stim_header = sprintf('frameId;luminance');
     fprintf(stim_fid, '%s\r\n', stim_header);
     % % Close stimulus file.
     fclose(stim_fid);
     % % Write stimulus file data.
-    dlmwrite(stim_pathname, stimulus, '-append', 'delimiter', '\t', 'newline', 'pc');
+    dlmwrite(stim_pathname, stimulus, '-append', 'delimiter', ';', 'newline', 'pc');
     
     % Define parameter data.
     % % Input parameters.

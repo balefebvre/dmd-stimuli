@@ -1,32 +1,17 @@
-function [ ] = euler_full_field( input_args )
-%EULER_FULL_FIELD Generate Thomas Euler's full-field DMD stimulus.
+function [ ] = flash_full_field( input_args )
+%FLASH_FULL_FIELD Summary of this function goes here
 %   Detailed explanation goes here
     
     [~, mname, ~] = fileparts(mfilename('fullpath'));
     
     % 1. Parse input parameters.
     % % Define default value for each input parameter.
-    initial_adaptation_duration = 20.0; % sec
-    trial_adaptation_duration = 10.0; % sec
+    flash_duration = 0.5; % sec
+    post_flash_duration = 0.5; % sec
+    initial_adaptation_duration = 0.0; % sec
+    trial_adaptation_duration = 1.5; % sec
     background_intensity = 0.1;
-    step = {
-        'd_ante', 2.0, ... % sec
-        'd', 3.0, ... % sec
-        'd_post', 3.0, ... % sec
-    };
-    freq_chirp = {
-        'd_ante', 2.0, ... % sec
-        'd', 8.0, ... % sec
-        'd_post', 1.0, ... % sec
-        'nb_periods', 32, ...
-    };
-    ampl_chirp = {
-        'd_ante', 1.0, ... % sec
-        'd', 8.0, ... % sec
-        'd_post', 2.0, ... % sec
-        'nb_periods', 16, ...
-    };
-    nb_repetitions = 10;
+    nb_repetitions = 5 * 30;
     dmd_width = 1024; % px
     dmd_height = 768; % px
     dmd_frame_rate = 60.0; % Hz
@@ -34,12 +19,11 @@ function [ ] = euler_full_field( input_args )
     output_foldername = pwd;
     % % Define input parser.
     parser = inputParser;
+    parser.addParameter('flash_duration', flash_duration);
+    parser.addParameter('post_flash_duration', post_flash_duration);
     parser.addParameter('initial_adaptation_duration', initial_adaptation_duration);
     parser.addParameter('trial_adaptation_duration', trial_adaptation_duration);
     parser.addParameter('background_intensity', background_intensity);
-    parser.addParameter('step', step);
-    parser.addParameter('freq_chirp', freq_chirp);
-    parser.addParameter('ampl_chirp', ampl_chirp);
     parser.addParameter('nb_repetitions', nb_repetitions);
     parser.addParameter('dmd_width', dmd_width);
     parser.addParameter('dmd_height', dmd_height);
@@ -52,16 +36,13 @@ function [ ] = euler_full_field( input_args )
     args = parser.Results;
     
     % ...
-    args.step = [args.step, {'frame_rate', args.dmd_frame_rate}];
-    lum_step = euler_step(args.step);
-    args.freq_chirp = [args.freq_chirp, {'frame_rate', args.dmd_frame_rate}];
-    lum_freq_chirp = euler_freq_chirp(args.freq_chirp);
-    args.ampl_chirp = [args.ampl_chirp, {'frame_rate', args.dmd_frame_rate}];
-    lum_ampl_chirp = euler_ampl_chirp(args.ampl_chirp);
+    n_flash = ceil(args.flash_duration * args.dmd_frame_rate);
+    lum_flash = ones(n_flash, 1);
+    n_post_flash = ceil(args.post_flash_duration * args.dmd_frame_rate);
+    lum_post_flash = zeros(n_post_flash, 1);
     lum_stim = [
-        lum_step;
-        lum_freq_chirp;
-        lum_ampl_chirp;
+        lum_flash;
+        lum_post_flash;
     ];
     % % Rescale stimulus luminance profile.
     if args.background_intensity < 1.0
@@ -92,18 +73,6 @@ function [ ] = euler_full_field( input_args )
     if ~exist(output_foldername, 'dir')
         mkdir(output_foldername);
     end
-    
-    % Plot control figure.
-    figure('visible', 'off');
-    x = (0:length(lum_stim)) / args.dmd_frame_rate;
-    y = [lum_stim; lum_stim(end)];
-    stairs(x, y, 'k-');
-    xlim([min(x), max(x)]);
-    ylim([0.0-5.0, 255.0+5.0]);
-    xlabel('time (sec)');
-    ylabel('luminance (arb. unit)');
-    saveas(gcf, fullfile(args.output_foldername, [mname, '_control.svg']));
-    close();
     
     % Generate full-field profile used at the beginning.
     n_init = ceil(args.initial_adaptation_duration * args.dmd_frame_rate);

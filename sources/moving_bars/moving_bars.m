@@ -259,6 +259,14 @@ function [ ] = moving_bars( input_args )
     
     nb_total_images = sum(nb_images); % total number of images (i.e. unique frames)
     nb_total_frames = sum(nb_frames); % total number of frames
+    args.total_duration = nb_total_frames / args.dmd_frame_rate;
+    disp('Total duration:')
+    disp(['  ', num2str(args.total_duration), ' sec']);
+    if args.total_duration > 60.0
+        dm = floor(args.total_duration / 60.0);
+        ds = args.total_duration - dm * 60.0;
+        disp(['  ', num2str(dm), ' min ', num2str(ds), ' sec']);
+    end
     
     % Write trials files.
     % % Open trials file.

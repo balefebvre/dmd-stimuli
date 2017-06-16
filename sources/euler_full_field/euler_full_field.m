@@ -116,9 +116,9 @@ function [ ] = euler_full_field( input_args )
     lum_trial = uint8(lum_trial - 0.5);
     
     % Generate full-field profile.
-    profiles = cell(1 + 2 * nb_repetitions, 1);
+    profiles = cell(1 + 2 * args.nb_repetitions, 1);
     profiles{1} = lum_init;
-    for repetition_id = 1:nb_repetitions
+    for repetition_id = 1:args.nb_repetitions
         profiles{2 * repetition_id + 0} = lum_trial;
         profiles{2 * repetition_id + 1} = lum_stim;
     end
@@ -180,10 +180,10 @@ function [ ] = euler_full_field( input_args )
     fclose(vec_fid);
     
     % Define repetitions data.
-    repetitions = zeros(nb_repetitions, 3);
+    repetitions = zeros(args.nb_repetitions, 3);
     nbs_frames = cellfun(@(lum) length(lum), profiles);
     frame_ids = cumsum(nbs_frames);
-    for repetition_id = 1:nb_repetitions
+    for repetition_id = 1:args.nb_repetitions
         repetitions(repetition_id, 1) = repetition_id;
         start_frame_id = frame_ids(2 * repetition_id) + 1;
         repetitions(repetition_id, 2) = start_frame_id;

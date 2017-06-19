@@ -135,6 +135,27 @@ function [ ] = natural_movies( input_args )
         fclose(vec_fid);
     end
     
+    % Define .csv file data.
+    args.nb_trials = args.nb_movies * args.nb_repetitions;
+    trial_ids = (1:args.nb_trials)';
+    start_frame_ids = nb_frames_init + nb_frames_trial + 1 + ((1:args.nb_trials)' - 1) * (args.video_nb_frames + nb_frames_trial); % TODO correct temporary solution.
+    end_frame_ids = nb_frames_init + (1:args.nb_trials)' * (args.video_nb_frames + nb_frames_trial); % TODO correct temporary solution.
+    movie_ids = ones(args.nb_trials, 1); % TODO correct temporary solution.
+    trials = [trial_ids, start_frame_ids, end_frame_ids, movie_ids];
+    
+    % Write .csv file.
+    % % Open .csv file.
+    csv_filename = [mname, '_trials.csv'];
+    csv_pathname = fullfile(args.output_foldername, csv_filename);
+    csv_fid = fopen(csv_pathname, 'w');
+    % % Write .csv file header.
+    csv_header = 'trialId;startFrameId;endFrameId;movieId';
+    fprintf(csv_fid, '%s\r\n', csv_header);
+    % % Close .csv file.
+    fclose(csv_fid);
+    % % Write .csv file data.
+    dlmwrite(csv_pathname, trials, '-append', 'delimiter', ';', 'newline', 'pc');
+    
     % Save .mat file.
     mat_filename = fullfile(args.output_foldername, [mname, '_parameters.mat']);
     save(mat_filename, '-struct', 'args');

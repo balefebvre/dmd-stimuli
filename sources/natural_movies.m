@@ -7,7 +7,7 @@ function [ ] = natural_movies( input_args )
     % 1. Parse input parameters.
     % % Define input parser.
     parser = inputParser;
-    parser.addParameter('input_foldername', fullfile('..', 'data'));
+    parser.addParameter('input_foldername', fullfile(mfoldername, '..', 'data'));
     parser.addParameter('input_filename', 'clips_stephanie_palmer.avi');
     parser.addParameter('video_duration', 0.0); % sec
     parser.addParameter('nb_movies', 1);
@@ -52,6 +52,16 @@ function [ ] = natural_movies( input_args )
     nb_frames_trial = ceil(args.trial_adaptation_duration * args.dmd_frame_rate);
     args.nb_images = args.video_nb_frames + 1;
     args.nb_frames = nb_frames_init + args.nb_repetitions * (nb_frames_trial + args.video_nb_frames);
+    
+    % Print stimulus duration.
+    d_stim = args.nb_frames / args.dmd_frame_rate; % sec
+    disp('Stimulus duration:');
+    disp(['  ', num2str(d_stim), ' sec']);
+    if d_stim > 60.0
+        dm = floor(d_stim / 60.0); % minutes
+        ds = d_stim - dm * 60.0; % seconds
+        disp(['  ', num2str(dm), ' min ', num2str(ds), ' sec']);
+    end
     
     % ...
     if args.background_intensity < 1.0

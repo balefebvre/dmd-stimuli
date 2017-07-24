@@ -46,7 +46,7 @@ function [ ] = moving_bars( input_args )
     [X, Y] = meshgrid(args.x_node_columns, args.y_node_rows);
     
     % Plot first control_figure.
-    % % ...
+    % % Define 256MEA30 and 256MEA60 bounds.
     x_min_60 = -7.5 * 60.0; % µm
     y_min_60 = -7.5 * 60.0; % µm
     width_60 = +15.0 * 60.0; % µm
@@ -59,6 +59,7 @@ function [ ] = moving_bars( input_args )
     control_1_filename = [mname, '_control_1.svg'];
     control_1_pathname = fullfile(args.output_foldername, control_1_filename);
     figure('visible', 'off');
+    axis('equal');
     hold('on');
     rectangle('Position', [x_min_60, y_min_60, width_60, height_60]);
     rectangle('Position', [x_min_30, y_min_30, width_30, height_30]);
@@ -167,13 +168,22 @@ function [ ] = moving_bars( input_args )
         y = linspace(y_min, y_max, n);
         sd_traces{sd_trace_id} = [x(:), y(:)];
     end
-    % TODO define each trace (i.e. bar coordinates for each time step).
     
-    % TODO plot second control figure.
+    % Plot second control figure.
     control_2_filename = [mname, '_control_2.svg'];
     control_2_pathname = fullfile(args.output_foldername, control_2_filename);
     figure('visible', 'off');
+    axis('equal');
     hold('on');
+    % % Plot DMD bounds.
+    x_min_dmd = ((1 - 0.5) - (1024 + 1) / 2) * args.pixel_size;
+    y_min_dmd = ((1 - 0.5) - (768 + 1) / 2) * args.pixel_size;
+    width_dmd = 1024 * args.pixel_size;
+    height_dmd = 768 * args.pixel_size;
+    rectangle('Position', [x_min_dmd, y_min_dmd, width_dmd, height_dmd]);
+    % % Plot 256MEA30 and 256MEA60 bounds.
+    rectangle('Position', [x_min_60, y_min_60, width_60, height_60]);
+    rectangle('Position', [x_min_30, y_min_30, width_30, height_30]);
     % % Plot horizontal traces.
     for k = 1:args.nb_h_traces
         plot(h_traces{k}(:, 1), h_traces{k}(:, 2), 'b.-');
@@ -191,8 +201,10 @@ function [ ] = moving_bars( input_args )
         plot(sd_traces{k}(:, 1), sd_traces{k}(:, 2), 'k.-');
     end
     hold('off');
-    xlim(([1-0.5, 1024+0.5] - (1024 + 1) / 2) * args.pixel_size);
-    ylim(([1-0.5, 768+0.5] - (768 + 1) / 2) * args.pixel_size);
+    % TODO remove the two following lines.
+    % xlim(([1-0.5, 1024+0.5] - (1024 + 1) / 2) * args.pixel_size);
+    % ylim(([1-0.5, 768+0.5] - (768 + 1) / 2) * args.pixel_size);
+    title('Traces over DMD, 256MEA60 and 256MEA30');
     xlabel('x (µm)');
     ylabel('y (µm)');
     saveas(gcf, control_2_pathname);

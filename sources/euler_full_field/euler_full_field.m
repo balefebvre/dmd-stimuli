@@ -5,47 +5,34 @@ function [ ] = euler_full_field( input_args )
     [~, mname, ~] = fileparts(mfilename('fullpath'));
     
     % 1. Parse input parameters.
-    % % Define default value for each input parameter.
-    initial_adaptation_duration = 20.0; % sec
-    trial_adaptation_duration = 10.0; % sec
-    background_intensity = 0.1;
-    step = {
+    % % Define input parser.
+    parser = inputParser;
+    parser.addParameter('initial_adaptation_duration', 20.0); % sec
+    parser.addParameter('trial_adaptation_duration', 10.0); % sec
+    parser.addParameter('background_intensity', 0.1);
+    parser.addParameter('step', {
         'd_ante', 2.0, ... % sec
         'd', 3.0, ... % sec
         'd_post', 3.0, ... % sec
-    };
-    freq_chirp = {
+    });
+    parser.addParameter('freq_chirp', {
         'd_ante', 2.0, ... % sec
         'd', 8.0, ... % sec
         'd_post', 1.0, ... % sec
         'nb_periods', 32, ...
-    };
-    ampl_chirp = {
+    });
+    parser.addParameter('ampl_chirp', {
         'd_ante', 1.0, ... % sec
         'd', 8.0, ... % sec
         'd_post', 2.0, ... % sec
         'nb_periods', 16, ...
-    };
-    nb_repetitions = 10;
-    dmd_width = 1024; % px
-    dmd_height = 768; % px
-    dmd_frame_rate = 60.0; % Hz
-    dmd_inversed_polarity = false;
-    output_foldername = pwd;
-    % % Define input parser.
-    parser = inputParser;
-    parser.addParameter('initial_adaptation_duration', initial_adaptation_duration);
-    parser.addParameter('trial_adaptation_duration', trial_adaptation_duration);
-    parser.addParameter('background_intensity', background_intensity);
-    parser.addParameter('step', step);
-    parser.addParameter('freq_chirp', freq_chirp);
-    parser.addParameter('ampl_chirp', ampl_chirp);
-    parser.addParameter('nb_repetitions', nb_repetitions);
-    parser.addParameter('dmd_width', dmd_width);
-    parser.addParameter('dmd_height', dmd_height);
-    parser.addParameter('dmd_frame_rate', dmd_frame_rate);
-    parser.addParameter('dmd_inversed_polarity', dmd_inversed_polarity);
-    parser.addParameter('output_foldername', output_foldername);
+    });
+    parser.addParameter('nb_repetitions', 10);
+    parser.addParameter('dmd_width', 1024); % px
+    parser.addParameter('dmd_height', 768); % px
+    parser.addParameter('dmd_frame_rate', 60.0); % Hz
+    parser.addParameter('dmd_inversed_polarity', false);
+    parser.addParameter('output_foldername', pwd);
     % % Parse input arguments.
     parser.parse(input_args{:});
     % % Retrieve values of input parameters.
@@ -89,8 +76,8 @@ function [ ] = euler_full_field( input_args )
     end
     
     % Make output directory.
-    if ~exist(output_foldername, 'dir')
-        mkdir(output_foldername);
+    if ~exist(args.output_foldername, 'dir')
+        mkdir(args.output_foldername);
     end
     
     % Plot control figure.

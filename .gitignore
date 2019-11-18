@@ -30,3 +30,6 @@ octave-workspace
 
 # Simulink autosave extension
 .autosave
+
+# MATLAB figures
+*.fig

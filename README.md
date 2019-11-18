@@ -16,7 +16,10 @@ The stimuli are:
   maximal luminance of the light source
 - [`moving_bars`](sources/moving_bars/moving_bars.m) which is a synthetic
   stimulus, bars cover a 2-D grid of nodes/points in eight directions
-- ...
+- [`rectangle_central_field`](source/rectangle_central_field.m) which is a synthetic
+  stimulus, containing a flash in form of a rectangle of custom size and luminance 
+- [`binary_time_series`](source/binary_time_series.m) which is a synthetic
+  stimulus, mapping an input binary sequence into a DMD stimulus of custom luminance for 0 and 1
 
 
 ## Launch the code
@@ -26,5 +29,5 @@ The stimuli are:
 3. Add all folders and subfolders to path.
 4. Run `initialize` in the command window.
 5. Run `example_euler_full_field` in the command window.
-6. Look at the outputs in the `òutputs` folder.
+6. Look at the outputs in the `outputs` folder.
 
